@@ -366,200 +366,290 @@ sap.ui.define([
                 }
             }
         },
-        getDataFromBackend2: async function () {
+        // getDataFromBackend2: async function () {
+        //     if (!this._validateInputFields()) {
+        //         return; // Validation failed
+        //     }
+
+        //     var that = this;
+        //     var oGlobalModelData = this.getOwnerComponent().getModel("globalModel").getData();
+        //     sap.ui.core.BusyIndicator.show(0); // show loading spinner
+
+        //     try {
+        //         var oModel = this.getOwnerComponent().getModel();
+        //         let sPath = "/ZC_SCSO_RECD_RPT(p_date_low=datetime'" +
+        //             oGlobalModelData.fromDate + "T00:00:00'," +
+        //             "p_date_high=datetime'" + oGlobalModelData.toDate + "T00:00:00')/Set";
+
+        //         await new Promise(function (resolve, reject) {
+        //             oModel.read(sPath, {
+        //                 success: function (oData) {
+        //                     sap.ui.core.BusyIndicator.hide();
+
+        //                     let aAllData = oData.results || [];
+
+        //                     if (aAllData.length === 0) {
+        //                         sap.m.MessageBox.warning("No Data Available!");
+        //                     } else {
+        //                         // Format each record
+        //                         aAllData = aAllData.map(function (item) {
+        //                             // Format SalesDocumentDate to dd-mm-yyyy
+        //                             item.SalesDocumentDate = that._formatDateToDDMMYYYY(item.SalesDocumentDate);
+
+        //                             // Format numeric fields to 2 decimals
+        //                             const numericFields = [
+        //                                 "OrderQuantity", "unit_price", "total_price",
+        //                                 "PriceDetnExchangeRate", "total_price_inr",
+        //                                 "ItemGrossWeight", "ItemNetWeight"
+        //                             ];
+
+        //                             numericFields.forEach(function (field) {
+        //                                 if (item[field] !== undefined && item[field] !== null) {
+        //                                     var num = parseFloat(item[field]);
+        //                                     if (!isNaN(num)) {
+        //                                         item[field] = num.toLocaleString("en-US", {
+        //                                             minimumFractionDigits: 2,
+        //                                             maximumFractionDigits: 2
+        //                                         });
+        //                                     }
+        //                                 }
+        //                             });
+
+        //                             return item;
+        //                         });
+        //                     }
+
+        //                     // **Always update table model**, even if array is empty
+        //                     var oTableDataModel = that.getView().getModel("TableDataModel");
+        //                     oTableDataModel.setData(aAllData);
+
+        //                     resolve();
+        //                 },
+        //                 error: function (oError) {
+        //                     sap.ui.core.BusyIndicator.hide();
+        //                     console.error("Error while fetching data:", oError);
+        //                     reject(oError);
+        //                 }
+        //             });
+        //         });
+
+        //     } catch (error) {
+        //         sap.ui.core.BusyIndicator.hide();
+        //         console.error("Error while fetching data:", error);
+        //     }
+        // },
+
+        getDataFromBackend3: async function () {
+            // Step 1: Validate input fields
             if (!this._validateInputFields()) {
                 return; // Validation failed
             }
 
             var that = this;
             var oGlobalModelData = this.getOwnerComponent().getModel("globalModel").getData();
+            var oModel = this.getOwnerComponent().getModel();
+            var oTableDataModel = this.getView().getModel("TableDataModel");
+
             sap.ui.core.BusyIndicator.show(0); // show loading spinner
 
             try {
-                var oModel = this.getOwnerComponent().getModel();
-                let sPath = "/ZC_SCSO_RECD_RPT(p_date_low=datetime'" +
-                    oGlobalModelData.fromDate + "T00:00:00'," +
-                    "p_date_high=datetime'" + oGlobalModelData.toDate + "T00:00:00')/Set";
+                // Step 2: Construct OData path with input dates
+                let sPath = `/ZC_SCSO_RECD_RPT(p_date_low=datetime'${oGlobalModelData.fromDate}T00:00:00',p_date_high=datetime'${oGlobalModelData.toDate}T00:00:00')/Set`;
+                let aAllData = [];
+                let bMoreData = true;
 
-                await new Promise(function (resolve, reject) {
-                    oModel.read(sPath, {
-                        success: function (oData) {
-                            sap.ui.core.BusyIndicator.hide();
+                // Step 3: Fetch all data following __next for server-side paging
+                while (bMoreData) {
+                    const oResponse = await new Promise((resolve, reject) => {
+                        oModel.read(sPath, {
+                            success: function (oData) {
+                                resolve(oData);
+                            },
+                            error: function (oError) {
+                                reject(oError);
+                            }
+                        });
+                    });
 
-                            let aAllData = oData.results || [];
+                    // Add batch data if available
+                    if (oResponse && oResponse.results && oResponse.results.length > 0) {
+                        aAllData = aAllData.concat(oResponse.results);
+                    }
 
-                            if (aAllData.length === 0) {
-                                sap.m.MessageBox.warning("No Data Available!");
-                            } else {
-                                // Format each record
-                                aAllData = aAllData.map(function (item) {
-                                    // Format SalesDocumentDate to dd-mm-yyyy
-                                    item.SalesDocumentDate = that._formatDateToDDMMYYYY(item.SalesDocumentDate);
+                    // Check if __next exists → more data available
+                    // if (oResponse.__next) {
+                    //     // Convert absolute __next to relative path
+                    //     const url = new URL(oResponse.__next);
+                    //     sPath = url.pathname + url.search; // only relative path
+                    // } else {
+                    //     bMoreData = false;
+                    // }
+                    if (oResponse.__next) {
+                        const url = new URL(oResponse.__next, window.location.origin); // create URL object
+                        const serviceRoot = oModel.sServiceUrl.replace(/\/$/, ""); // remove trailing slash
+                        if (url.href.indexOf(serviceRoot) === 0) {
+                            // Remove service root → pass relative path
+                            sPath = url.href.substring(serviceRoot.length);
+                        } else {
+                            // Fallback: use the pathname + search, remove leading slash
+                            sPath = url.pathname + url.search;
+                            if (sPath.startsWith("/")) sPath = sPath.substring(1);
+                        }
+                    } else {
+                        bMoreData = false;
+                    }
+                }
 
-                                    // Format numeric fields to 2 decimals
-                                    const numericFields = [
-                                        "OrderQuantity", "unit_price", "total_price",
-                                        "PriceDetnExchangeRate", "total_price_inr",
-                                        "ItemGrossWeight", "ItemNetWeight"
-                                    ];
+                console.log("Total Records Fetched:", aAllData.length);
 
-                                    numericFields.forEach(function (field) {
-                                        if (item[field] !== undefined && item[field] !== null) {
-                                            var num = parseFloat(item[field]);
-                                            if (!isNaN(num)) {
-                                                item[field] = num.toLocaleString("en-US", {
-                                                    minimumFractionDigits: 2,
-                                                    maximumFractionDigits: 2
-                                                });
-                                            }
-                                        }
-                                    });
+                // Step 4: Handle no data → show blank table and warning
+                if (aAllData.length === 0) {
+                    sap.m.MessageBox.warning("No Data Available!");
+                    oTableDataModel.setData([]); // set blank table
+                    return;
+                }
 
-                                    return item;
+                // Step 5: Format data
+                aAllData = aAllData.map(function (item) {
+                    // Format SalesDocumentDate to dd-mm-yyyy
+                    item.SalesDocumentDate = that._formatDateToDDMMYYYY(item.SalesDocumentDate);
+
+                    // Format numeric fields to 2 decimals
+                    const numericFields = [
+                        "OrderQuantity",
+                        "unit_price",
+                        "total_price",
+                        "PriceDetnExchangeRate",
+                        "total_price_inr",
+                        "ItemGrossWeight",
+                        "ItemNetWeight"
+                    ];
+
+                    numericFields.forEach(function (field) {
+                        if (item[field] !== undefined && item[field] !== null) {
+                            let num = parseFloat(item[field]);
+                            if (!isNaN(num)) {
+                                item[field] = num.toLocaleString("en-US", {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2
                                 });
                             }
-
-                            // **Always update table model**, even if array is empty
-                            var oTableDataModel = that.getView().getModel("TableDataModel");
-                            oTableDataModel.setData(aAllData);
-
-                            resolve();
-                        },
-                        error: function (oError) {
-                            sap.ui.core.BusyIndicator.hide();
-                            console.error("Error while fetching data:", oError);
-                            reject(oError);
                         }
                     });
+
+                    return item;
                 });
 
+                // Step 6: Bind formatted data to TableDataModel
+                oTableDataModel.setData(aAllData);
+
             } catch (error) {
-                sap.ui.core.BusyIndicator.hide();
                 console.error("Error while fetching data:", error);
+                try {
+                    var errorObject = JSON.parse(error.responseText);
+                    sap.m.MessageBox.error(errorObject.error.message.value);
+                } catch (e) {
+                    sap.m.MessageBox.error("Error while fetching data. Please try again.");
+                }
+            } finally {
+                sap.ui.core.BusyIndicator.hide();
             }
         },
 
+        getDataFromBackend2: async function () {
+            // Step 1: Validate input fields
+            if (!this._validateInputFields()) {
+                return; // Validation failed
+            }
+
+            var that = this;
+            var oGlobalModelData = this.getOwnerComponent().getModel("globalModel").getData();
+            var oModel = this.getOwnerComponent().getModel();
+            var oTableDataModel = this.getView().getModel("TableDataModel");
+            var allResults = []; // collect all records
+
+            sap.ui.core.BusyIndicator.show(0); // show loading spinner
+
+            // Recursive function to fetch paginated data
+            function readData(skipToken) {
+                var mParameters = {
+                    success: function (oData) {
+                        // Append current batch
+                        allResults = allResults.concat(oData.results || []);
+
+                        if (oData.__next) {
+                            // Extract skiptoken from __next link
+                            var nextToken = decodeURIComponent(oData.__next.split("$skiptoken=")[1]);
+                            readData(nextToken); // Recursive call for next page
+                        } else {
+                            // No more data → process final results
+                            sap.ui.core.BusyIndicator.hide();
+
+                            if (allResults.length === 0) {
+                                sap.m.MessageBox.warning("No Data Available!");
+                                oTableDataModel.setData([]); // show blank table
+                                return;
+                            }
+
+                            // Format each record
+                            allResults = allResults.map(function (item) {
+                                // Format SalesDocumentDate
+                                item.SalesDocumentDate = that._formatDateToDDMMYYYY(item.SalesDocumentDate);
+
+                                // Format numeric fields to 2 decimals
+                                const numericFields = [
+                                    "OrderQuantity",
+                                    "unit_price",
+                                    "total_price",
+                                    "PriceDetnExchangeRate",
+                                    "total_price_inr",
+                                    "ItemGrossWeight",
+                                    "ItemNetWeight"
+                                ];
+
+                                numericFields.forEach(function (field) {
+                                    if (item[field] !== undefined && item[field] !== null) {
+                                        let num = parseFloat(item[field]);
+                                        if (!isNaN(num)) {
+                                            item[field] = num.toLocaleString("en-US", {
+                                                minimumFractionDigits: 2,
+                                                maximumFractionDigits: 2
+                                            });
+                                        }
+                                    }
+                                });
+
+                                return item;
+                            });
+
+                            // Set final data to TableDataModel
+                            oTableDataModel.setData(allResults);
+                            console.log("Total Records Fetched:", allResults.length);
+                        }
+                    },
+                    error: function (oError) {
+                        sap.ui.core.BusyIndicator.hide();
+                        console.error("Error while fetching data:", oError);
+                        sap.m.MessageBox.error("Error while fetching data. Check console for details.");
+                    }
+                };
+
+                // Build path for the function import
+                var sPath = `/ZC_SCSO_RECD_RPT(p_date_low=datetime'${oGlobalModelData.fromDate}T00:00:00',p_date_high=datetime'${oGlobalModelData.toDate}T00:00:00')/Set`;
+
+                // Add skiptoken if exists
+                if (skipToken) {
+                    mParameters.urlParameters = { "$skiptoken": skipToken };
+                }
+
+                oModel.read(sPath, mParameters);
+            }
+
+            // Start first call without skipToken
+            readData();
+        },
 
 
-        /* Used $top and $skip - Not Working Below Code Fetching Function Running Infinitely
-
-        // getDataFromBackend2: async function () {
-        //     if (!this._validateInputFields()) {
-        //         return; // Validation failed
-        //     }
-
-        //     const that = this;
-        //     const oGlobalModelData = this.getOwnerComponent().getModel("globalModel").getData();
-        //     const oNewModel = this.getOwnerComponent().getModel();
-
-        //     // Build and encode your parameterized OData URL
-        //     let sPath = "/ZC_SCSO_RECD_RPT(p_date_low=datetime'" +
-        //         oGlobalModelData.fromDate + "T00:00:00'," +
-        //         "p_date_high=datetime'" + oGlobalModelData.toDate + "T00:00:00')/Set";
-
-        //     sPath = encodeURI(sPath);
-
-        //     sap.ui.core.BusyIndicator.show(0);
-
-        //     try {
-        //         const iBatchSize = 100;  // safe large batch size
-        //         let iSkip = 0;
-        //         let iBatchNumber = 1;
-        //         let aAllData = [];
-        //         let bMoreData = true;
-
-        //         console.log(" Starting OData batch fetch...");
-
-        //         // Fetch loop
-        //         while (bMoreData) {
-        //             const sPagedUrl = `${sPath}?$top=${iBatchSize}&$skip=${iSkip}`;
-
-        //             console.log(` Fetching Batch #${iBatchNumber} → skip=${iSkip}, top=${iBatchSize}`);
-
-        //             // eslint-disable-next-line no-await-in-loop
-        //             const oResponse = await new Promise((resolve, reject) => {
-        //                 oNewModel.read(sPagedUrl, {
-        //                     success: function (oData) {
-        //                         resolve(oData);
-        //                     },
-        //                     error: function (oError) {
-        //                         reject(oError);
-        //                     }
-        //                 });
-        //             });
-
-        //             if (oResponse && oResponse.results && oResponse.results.length > 0) {
-        //                 console.log(` Batch #${iBatchNumber} fetched: ${oResponse.results.length} records`);
-        //                 aAllData = aAllData.concat(oResponse.results);
-
-        //                 // Increment counters
-        //                 iSkip += iBatchSize;
-        //                 iBatchNumber++;
-
-        //                 // Stop if this batch returned less than batch size
-        //                 if (oResponse.results.length < iBatchSize) {
-        //                     bMoreData = false;
-        //                 }
-        //             } else {
-        //                 bMoreData = false;
-        //             }
-
-        //             // Optional: small delay between requests (good for backend stability)
-        //             await new Promise(r => setTimeout(r, 50));
-        //         }
-
-        //         console.log(" Total Records Fetched:", aAllData.length);
-
-        //         if (aAllData.length === 0) {
-        //             sap.m.MessageBox.warning("No Data Available!");
-        //             return;
-        //         }
-
-        //         //  Format fetched data
-        //         const numericFields = [
-        //             "OrderQuantity", "unit_price", "total_price",
-        //             "PriceDetnExchangeRate", "total_price_inr",
-        //             "ItemGrossWeight", "ItemNetWeight"
-        //         ];
-
-        //         aAllData = aAllData.map(function (item) {
-        //             // Format date
-        //             item.SalesDocumentDate = that._formatDateToDDMMYYYY(item.SalesDocumentDate);
-
-        //             // Format numeric fields
-        //             numericFields.forEach(function (field) {
-        //                 if (item[field] !== undefined && item[field] !== null) {
-        //                     const num = parseFloat(item[field]);
-        //                     if (!isNaN(num)) {
-        //                         item[field] = num.toLocaleString("en-US", {
-        //                             minimumFractionDigits: 2,
-        //                             maximumFractionDigits: 2
-        //                         });
-        //                     }
-        //                 }
-        //             });
-
-        //             return item;
-        //         });
-
-        //         // Bind formatted data to TableDataModel
-        //         const oTableDataModel = that.getView().getModel("TableDataModel");
-        //         oTableDataModel.setData(aAllData);
-
-        //     } catch (error) {
-        //         console.error(" Error while fetching data:", error);
-        //         try {
-        //             const errorObject = JSON.parse(error.responseText);
-        //             sap.m.MessageBox.error(errorObject.error.message.value);
-        //         } catch (e) {
-        //             sap.m.MessageBox.error("Error while fetching data. Please try again.");
-        //         }
-        //     } finally {
-        //         sap.ui.core.BusyIndicator.hide();
-        //     }
-        // },
-
-        */
 
         _formatDateToDDMMYYYY: function (value) {
             if (!value) return "";
