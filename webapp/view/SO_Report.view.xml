@@ -4,7 +4,6 @@
     <Page id="page" title="{i18n>title}">
     </Page>
 </mvc:View> -->
-
 <mvc:View
     controllerName="com.crescent.app.soregisteredreport.controller.SO_Report"
     xmlns:mvc="sap.ui.core.mvc"
@@ -88,7 +87,6 @@
                                     />
                                 </fb:control>
                             </fb:FilterGroupItem>
-                            
                         </fb:filterGroupItems>
                     </fb:FilterBar>
                 </f:content>
@@ -177,9 +175,7 @@
                                 hAlign="Begin"
                                 visible="true"
                             >
-                                <Text
-                                    text="Currency"
-                                />
+                                <Text text="Currency" />
                             </Column>
                             <Column
                                 width="10rem"
@@ -188,9 +184,7 @@
                                 hAlign="Begin"
                                 visible="true"
                             >
-                                <Text
-                                    text="Bank"
-                                />
+                                <Text text="Bank" />
                             </Column>
                             <Column
                                 width="10rem"
@@ -264,7 +258,7 @@
                             >
                                 <Text text="Unit Price" />
                             </Column>
-                            <Column
+                            <!-- <Column
                                 width="10rem"
                                 minScreenWidth="Tablet"
                                 demandPopin="true"
@@ -272,7 +266,7 @@
                                 visible="true"
                             >
                                 <Text text="Total Price" />
-                            </Column>
+                            </Column> -->
                             <Column
                                 width="10rem"
                                 minScreenWidth="Tablet"
@@ -280,9 +274,7 @@
                                 hAlign="Begin"
                                 visible="true"
                             >
-                                <Text
-                                    text="Exchange Rate"
-                                />
+                                <Text text="Exchange Rate" />
                             </Column>
                             <Column
                                 width="10rem"
@@ -314,14 +306,12 @@
                         </columns>
 
                         <items>
-                            <ColumnListItem
-                                vAlign="Middle"
-                            >
+                            <ColumnListItem vAlign="Middle">
                                 <cells>
+                                    <Text text="{TableDataModel>doc_type}" />
                                     <Text
-                                        text="{TableDataModel>doc_type}"
+                                        text="{TableDataModel>SalesDocument}"
                                     />
-                                    <Text text="{TableDataModel>SalesDocument}" />
                                     <Text
                                         text="{TableDataModel>SalesDocumentItem}"
                                     />
@@ -335,31 +325,56 @@
                                     <Text
                                         text="{TableDataModel>BankIdentification}"
                                     />
-                                    <Text
-                                        text="{TableDataModel>Plant}"
-                                    />
+                                    <Text text="{TableDataModel>Plant}" />
                                     <Text text="{TableDataModel>salesperson}" />
+                                    <Text text="{TableDataModel>Material}" />
                                     <Text
-                                        text="{TableDataModel>Material}"
+                                        text="{TableDataModel>SalesDocumentItemText}"
                                     />
-                                    <Text text="{TableDataModel>SalesDocumentItemText}" />
                                     <Text
                                         text="{TableDataModel>MaterialGroup}"
                                     />
-                                    <Text text="{TableDataModel>ProductGroupName}" />
-                                    <Text text="{TableDataModel>OrderQuantity}" />
-                                    <Text text="{TableDataModel>unit_price}" />
                                     <Text
-                                        text="{TableDataModel>total_price}"
+                                        text="{TableDataModel>ProductGroupName}"
                                     />
+                                    <!-- <Text text="{TableDataModel>OrderQuantity}" /> -->
+                                    <Text
+                                        text="{
+                                                    parts: [
+                                                        { path: 'TableDataModel>doc_type' },
+                                                        { path: 'TableDataModel>OrderQuantity' },
+                                                        { path: 'TableDataModel>TargetQuantity' }
+                                                    ],
+                                                    formatter: '.getOrderQuantity'
+                                            }"
+                                    />
+                                    <Text text="{TableDataModel>unit_price}" />
+                                    <!-- <Text
+                                        text="{TableDataModel>total_price}"
+                                    /> -->
                                     <Text
                                         text="{TableDataModel>PriceDetnExchangeRate}"
                                     />
-                                    <Text
+                                    <!-- <Text
                                         text="{TableDataModel>total_price_inr}"
+                                    /> -->
+                                    <Text
+                                        text="{
+                                                parts: [
+                                                    { path: 'TableDataModel>doc_type' },
+                                                    { path: 'TableDataModel>OrderQuantity' },
+                                                    { path: 'TableDataModel>TargetQuantity' },
+                                                    { path: 'TableDataModel>unit_price' }
+                                                ],
+                                                formatter: '.getTotalPriceInr'
+                                            }"
                                     />
-                                    <Text text="{TableDataModel>ItemGrossWeight}" />
-                                    <Text text="{TableDataModel>ItemNetWeight}" />
+                                    <Text
+                                        text="{TableDataModel>ItemGrossWeight}"
+                                    />
+                                    <Text
+                                        text="{TableDataModel>ItemNetWeight}"
+                                    />
                                 </cells>
                             </ColumnListItem>
                         </items>

@@ -67,6 +67,7 @@ sap.ui.define([
         onDialogEquipmentNumber: function () {
             new CustModels();
         },
+        /*
         onExport: function () {
 
             const oTable = this.oTable;
@@ -95,107 +96,78 @@ sap.ui.define([
                     oSheet.destroy();
                 });
         },
-        // createColumnConfig: function () {
-        //     return [
-        //         {
-        //             label: "Material Group",
-        //             property: "MaterialGroupCombined",
-        //             type: EdmType.String
-        //         },
-        //         {
-        //             label: "Plant",
-        //             property: "Plant",
-        //             type: EdmType.String
-        //         },
-        //         {
-        //             label: "UOM",
-        //             property: "unit_of_measure",
-        //             type: EdmType.String
-        //         },
-        //         {
-        //             label: "Opening Stock Qty",
-        //             property: "open_stk_qty",
-        //             type: EdmType.String
-        //         },
-        //         {
-        //             label: "Received Against PO Qty",
-        //             property: "rcvd_po_qty",
-        //             type: EdmType.String
-        //         },
-        //         {
-        //             label: "Received From Prodn Ord Qty-Unrestricted",
-        //             property: "rcvd_mo_qty_unsl",
-        //             type: EdmType.String
-        //         },
-        //         {
-        //             label: "Received From Prodn Ord Qty-Rejection",
-        //             property: "rcvd_mo_qty_resl",
-        //             type: EdmType.String
-        //         },
-        //         {
-        //             label: "Foundary Return Qty",
-        //             property: "foundary_ret_qty",
-        //             type: EdmType.String
-        //         },
-        //         {
-        //             label: "Other Receipt Qty",
-        //             property: "oth_rcv_qty",
-        //             type: EdmType.String
-        //         },
-        //         {
-        //             label: "Transfer In Qty",
-        //             property: "trnsf_in_qty",
-        //             type: EdmType.String
-        //         },
-        //         {
-        //             label: "Sales Return Qty",
-        //             property: "SLS_RET_QTY",
-        //             type: EdmType.String
-        //         },
-        //         {
-        //             label: "Delivery Against SO Qty",
-        //             property: "SLS_DELV_QTY",
-        //             type: EdmType.String
-        //         },
-        //         {
-        //             label: "Issue to Prodn Order Qty",
-        //             property: "iss_prd_qty",
-        //             type: EdmType.String
-        //         },
-        //         {
-        //             label: "Other Issue Qty",
-        //             property: "oth_iss_QTY",
-        //             type: EdmType.String
-        //         },
-        //         {
-        //             label: "Return Against PO Qty",
-        //             property: "RET_PO_QTY",
-        //             type: EdmType.String
-        //         },
-        //         {
-        //             label: "Transfer Out Qty",
-        //             property: "trans_out_qty",
-        //             type: EdmType.String
-        //         },
-        //         {
-        //             label: "Total Received Qty",
-        //             property: "totalrcvdqty",
-        //             type: EdmType.String
-        //         },
-        //         {
-        //             label: "Total Issue Qty",
-        //             property: "totalissueqty",
-        //             type: EdmType.String
-        //         },
-        //         {
-        //             label: "Closing Stock",
-        //             property: "closing_stk",
-        //             type: EdmType.String
-        //         }
+        */
+        onExport: function () {
+            // Get all data from the model, not table binding
+            const oTableDataModel = this.getView().getModel("TableDataModel");
+            const oData = oTableDataModel.getData(); // all records
+            const that = this;
 
-        //     ];
-        // },
+            //  Step 1: Recalculate values before export
+            let aProcessedData = oData.map(item => {
+                let docType = item.doc_type;
+                // const orderQty = parseFloat(item.OrderQuantity) || 0;
+                // const targetQty = parseFloat(item.TargetQuantity) || 0;
+                // const price = parseFloat(item.unit_price) || 0;
 
+                let orderQtyStr = (item.OrderQuantity || "").toString().replace(/,/g, "");
+                let targetQtyStr = (item.TargetQuantity || "").toString().replace(/,/g, "");
+                let unitPriceStr = (item.unit_price || "").toString().replace(/,/g, "");
+
+                //  Convert to float (now clean of commas)
+                let orderQty = parseFloat(orderQtyStr) || 0;
+                let targetQty = parseFloat(targetQtyStr) || 0;
+                let price = parseFloat(unitPriceStr) || 0;
+
+                //  1. Decide which quantity to show in "SC/Direct SO Qty"
+                let finalQty = 0;
+                if (docType === "Sales Contract") {
+                    finalQty = targetQty;
+                } else if (docType === "Direct Sales Order") {
+                    finalQty = orderQty;
+                }
+
+                //  2. Calculate total price in INR
+                let totalPriceINR = 0;
+                if (docType === "Sales Contract") {
+                    totalPriceINR = targetQty * price;
+                } else if (docType === "Direct Sales Order") {
+                    totalPriceINR = orderQty * price;
+                }
+
+                //  3. Assign formatted values
+                item.OrderQuantity = parseFloat(finalQty.toFixed(2)); // numeric with 2 decimals
+                item.unit_price = parseFloat(price.toFixed(2));
+                item.total_price_inr = parseFloat(totalPriceINR.toFixed(2));
+
+                console.log(
+                    `Export Calc → DocType: ${docType}, Qty: ${finalQty}, UnitPrice: ${price}, TotalINR: ${item.total_price_inr}`
+                );
+
+                return item;
+            });
+
+            //  Step 2: Define Excel column configuration
+            const aCols = this.createColumnConfig();
+
+            //  Step 3: Configure and export
+            const oSettings = {
+                workbook: {
+                    columns: aCols,
+                    context: {
+                        sheetName: "SO Register Report"
+                    }
+                },
+                dataSource: aProcessedData, // ✅ use full model data
+                fileName: "Sales Contract - SO Register Report"
+            };
+
+            const oSheet = new sap.ui.export.Spreadsheet(oSettings);
+            oSheet.build()
+                .then(() => sap.m.MessageToast.show("Spreadsheet export has finished"))
+                .finally(() => oSheet.destroy());
+        },
+        
         createColumnConfig: function () {
             return [
                 { label: "Sales Document Type", property: "doc_type", type: EdmType.String },
@@ -211,13 +183,50 @@ sap.ui.define([
                 { label: "Material Name", property: "SalesDocumentItemText", type: EdmType.String },
                 { label: "Material Group", property: "MaterialGroup", type: EdmType.String },
                 { label: "Material Group Name", property: "ProductGroupName", type: EdmType.String },
-                { label: "SC/Direct SO Qty", property: "OrderQuantity", type: EdmType.String },
-                { label: "Unit Price", property: "unit_price", type: EdmType.String },
-                { label: "Total Price", property: "total_price", type: EdmType.String },
-                { label: "Exchange Rate", property: "PriceDetnExchangeRate", type: EdmType.String },
-                { label: "Total Price - INR", property: "total_price_inr", type: EdmType.String },
-                { label: "Unit Wt (Kg)", property: "ItemGrossWeight", type: EdmType.String },
-                { label: "Total Wt (Kg)", property: "ItemNetWeight", type: EdmType.String }
+
+                // Numbers with Excel style
+                {
+                    label: "SC/Direct SO Qty",
+                    property: "OrderQuantity",
+                    type: EdmType.Number,
+                    scale: 2,
+                    textAlign: "Right"
+                },
+                {
+                    label: "Unit Price",
+                    property: "unit_price",
+                    type: EdmType.Number,
+                    scale: 2,
+                    textAlign: "Right"
+                },
+                {
+                    label: "Exchange Rate",
+                    property: "PriceDetnExchangeRate",
+                    type: EdmType.Number,
+                    scale: 2,
+                    textAlign: "Right"
+                },
+                {
+                    label: "Total Price - INR",
+                    property: "total_price_inr",
+                    type: EdmType.Number,
+                    scale: 2,
+                    textAlign: "Right"
+                },
+                {
+                    label: "Unit Wt (Kg)",
+                    property: "ItemGrossWeight",
+                    type: EdmType.Number,
+                    scale: 2,
+                    textAlign: "Right"
+                },
+                {
+                    label: "Total Wt (Kg)",
+                    property: "ItemNetWeight",
+                    type: EdmType.Number,
+                    scale: 2,
+                    textAlign: "Right"
+                }
             ];
         },
 
@@ -366,195 +375,6 @@ sap.ui.define([
                 }
             }
         },
-        // getDataFromBackend2: async function () {
-        //     if (!this._validateInputFields()) {
-        //         return; // Validation failed
-        //     }
-
-        //     var that = this;
-        //     var oGlobalModelData = this.getOwnerComponent().getModel("globalModel").getData();
-        //     sap.ui.core.BusyIndicator.show(0); // show loading spinner
-
-        //     try {
-        //         var oModel = this.getOwnerComponent().getModel();
-        //         let sPath = "/ZC_SCSO_RECD_RPT(p_date_low=datetime'" +
-        //             oGlobalModelData.fromDate + "T00:00:00'," +
-        //             "p_date_high=datetime'" + oGlobalModelData.toDate + "T00:00:00')/Set";
-
-        //         await new Promise(function (resolve, reject) {
-        //             oModel.read(sPath, {
-        //                 success: function (oData) {
-        //                     sap.ui.core.BusyIndicator.hide();
-
-        //                     let aAllData = oData.results || [];
-
-        //                     if (aAllData.length === 0) {
-        //                         sap.m.MessageBox.warning("No Data Available!");
-        //                     } else {
-        //                         // Format each record
-        //                         aAllData = aAllData.map(function (item) {
-        //                             // Format SalesDocumentDate to dd-mm-yyyy
-        //                             item.SalesDocumentDate = that._formatDateToDDMMYYYY(item.SalesDocumentDate);
-
-        //                             // Format numeric fields to 2 decimals
-        //                             const numericFields = [
-        //                                 "OrderQuantity", "unit_price", "total_price",
-        //                                 "PriceDetnExchangeRate", "total_price_inr",
-        //                                 "ItemGrossWeight", "ItemNetWeight"
-        //                             ];
-
-        //                             numericFields.forEach(function (field) {
-        //                                 if (item[field] !== undefined && item[field] !== null) {
-        //                                     var num = parseFloat(item[field]);
-        //                                     if (!isNaN(num)) {
-        //                                         item[field] = num.toLocaleString("en-US", {
-        //                                             minimumFractionDigits: 2,
-        //                                             maximumFractionDigits: 2
-        //                                         });
-        //                                     }
-        //                                 }
-        //                             });
-
-        //                             return item;
-        //                         });
-        //                     }
-
-        //                     // **Always update table model**, even if array is empty
-        //                     var oTableDataModel = that.getView().getModel("TableDataModel");
-        //                     oTableDataModel.setData(aAllData);
-
-        //                     resolve();
-        //                 },
-        //                 error: function (oError) {
-        //                     sap.ui.core.BusyIndicator.hide();
-        //                     console.error("Error while fetching data:", oError);
-        //                     reject(oError);
-        //                 }
-        //             });
-        //         });
-
-        //     } catch (error) {
-        //         sap.ui.core.BusyIndicator.hide();
-        //         console.error("Error while fetching data:", error);
-        //     }
-        // },
-
-        getDataFromBackend3: async function () {
-            // Step 1: Validate input fields
-            if (!this._validateInputFields()) {
-                return; // Validation failed
-            }
-
-            var that = this;
-            var oGlobalModelData = this.getOwnerComponent().getModel("globalModel").getData();
-            var oModel = this.getOwnerComponent().getModel();
-            var oTableDataModel = this.getView().getModel("TableDataModel");
-
-            sap.ui.core.BusyIndicator.show(0); // show loading spinner
-
-            try {
-                // Step 2: Construct OData path with input dates
-                let sPath = `/ZC_SCSO_RECD_RPT(p_date_low=datetime'${oGlobalModelData.fromDate}T00:00:00',p_date_high=datetime'${oGlobalModelData.toDate}T00:00:00')/Set`;
-                let aAllData = [];
-                let bMoreData = true;
-
-                // Step 3: Fetch all data following __next for server-side paging
-                while (bMoreData) {
-                    const oResponse = await new Promise((resolve, reject) => {
-                        oModel.read(sPath, {
-                            success: function (oData) {
-                                resolve(oData);
-                            },
-                            error: function (oError) {
-                                reject(oError);
-                            }
-                        });
-                    });
-
-                    // Add batch data if available
-                    if (oResponse && oResponse.results && oResponse.results.length > 0) {
-                        aAllData = aAllData.concat(oResponse.results);
-                    }
-
-                    // Check if __next exists → more data available
-                    // if (oResponse.__next) {
-                    //     // Convert absolute __next to relative path
-                    //     const url = new URL(oResponse.__next);
-                    //     sPath = url.pathname + url.search; // only relative path
-                    // } else {
-                    //     bMoreData = false;
-                    // }
-                    if (oResponse.__next) {
-                        const url = new URL(oResponse.__next, window.location.origin); // create URL object
-                        const serviceRoot = oModel.sServiceUrl.replace(/\/$/, ""); // remove trailing slash
-                        if (url.href.indexOf(serviceRoot) === 0) {
-                            // Remove service root → pass relative path
-                            sPath = url.href.substring(serviceRoot.length);
-                        } else {
-                            // Fallback: use the pathname + search, remove leading slash
-                            sPath = url.pathname + url.search;
-                            if (sPath.startsWith("/")) sPath = sPath.substring(1);
-                        }
-                    } else {
-                        bMoreData = false;
-                    }
-                }
-
-                console.log("Total Records Fetched:", aAllData.length);
-
-                // Step 4: Handle no data → show blank table and warning
-                if (aAllData.length === 0) {
-                    sap.m.MessageBox.warning("No Data Available!");
-                    oTableDataModel.setData([]); // set blank table
-                    return;
-                }
-
-                // Step 5: Format data
-                aAllData = aAllData.map(function (item) {
-                    // Format SalesDocumentDate to dd-mm-yyyy
-                    item.SalesDocumentDate = that._formatDateToDDMMYYYY(item.SalesDocumentDate);
-
-                    // Format numeric fields to 2 decimals
-                    const numericFields = [
-                        "OrderQuantity",
-                        "unit_price",
-                        "total_price",
-                        "PriceDetnExchangeRate",
-                        "total_price_inr",
-                        "ItemGrossWeight",
-                        "ItemNetWeight"
-                    ];
-
-                    numericFields.forEach(function (field) {
-                        if (item[field] !== undefined && item[field] !== null) {
-                            let num = parseFloat(item[field]);
-                            if (!isNaN(num)) {
-                                item[field] = num.toLocaleString("en-US", {
-                                    minimumFractionDigits: 2,
-                                    maximumFractionDigits: 2
-                                });
-                            }
-                        }
-                    });
-
-                    return item;
-                });
-
-                // Step 6: Bind formatted data to TableDataModel
-                oTableDataModel.setData(aAllData);
-
-            } catch (error) {
-                console.error("Error while fetching data:", error);
-                try {
-                    var errorObject = JSON.parse(error.responseText);
-                    sap.m.MessageBox.error(errorObject.error.message.value);
-                } catch (e) {
-                    sap.m.MessageBox.error("Error while fetching data. Please try again.");
-                }
-            } finally {
-                sap.ui.core.BusyIndicator.hide();
-            }
-        },
 
         getDataFromBackend2: async function () {
             // Step 1: Validate input fields
@@ -566,6 +386,7 @@ sap.ui.define([
             var oGlobalModelData = this.getOwnerComponent().getModel("globalModel").getData();
             var oModel = this.getOwnerComponent().getModel();
             var oTableDataModel = this.getView().getModel("TableDataModel");
+            var oExportDataModel = this.getView().getModel("exportDataModel");
             var allResults = []; // collect all records
 
             sap.ui.core.BusyIndicator.show(0); // show loading spinner
@@ -625,6 +446,7 @@ sap.ui.define([
                             // Set final data to TableDataModel
                             oTableDataModel.setData(allResults);
                             console.log("Total Records Fetched:", allResults.length);
+                            oExportDataModel.setData(allResults);   // Export Function
                         }
                     },
                     error: function (oError) {
@@ -648,8 +470,6 @@ sap.ui.define([
             // Start first call without skipToken
             readData();
         },
-
-
 
         _formatDateToDDMMYYYY: function (value) {
             if (!value) return "";
@@ -676,7 +496,47 @@ sap.ui.define([
             }
 
             return "";
+        },
+        getOrderQuantity: function (doc_type, OrderQuantity, TargetQuantity) {
+            if (doc_type === "Sales Contract") {
+                return TargetQuantity || "0";
+            } else if (doc_type === "Direct Sales Order") {
+                return OrderQuantity || "0";
+            } else {
+                return "";
+            }
+        },
+
+        getTotalPriceInr: function (doc_type, OrderQuantity, TargetQuantity, unit_price) {
+            //  Clean the input strings by removing commas but keep decimals
+            let orderQtyStr = (OrderQuantity || "").toString().replace(/,/g, "");
+            let targetQtyStr = (TargetQuantity || "").toString().replace(/,/g, "");
+            let unitPriceStr = (unit_price || "").toString().replace(/,/g, "");
+
+            //  Convert to float (now clean of commas)
+            let orderQty = parseFloat(orderQtyStr) || 0;
+            let targetQty = parseFloat(targetQtyStr) || 0;
+            let price = parseFloat(unitPriceStr) || 0;
+
+            let totalPriceINR = 0;
+
+            //  Business logic
+            if (doc_type === "Sales Contract") {
+                totalPriceINR = targetQty * price;
+            } else if (doc_type === "Direct Sales Order") {
+                totalPriceINR = orderQty * price;
+            } else {
+                return "0.00";
+            }
+
+            //  Return nicely formatted with commas and decimals
+            return totalPriceINR.toLocaleString("en-IN", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
         }
+
+
 
     });
 });

@@ -97,6 +97,9 @@
       },
       "TableDataModel": {
         "type": "sap.ui.model.json.JSONModel"
+      },
+      "exportDataModel": {
+        "type": "sap.ui.model.json.JSONModel"
       }
     },
     "resources": {
