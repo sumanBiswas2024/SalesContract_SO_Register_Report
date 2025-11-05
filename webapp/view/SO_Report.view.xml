@@ -364,14 +364,26 @@
                                                     { path: 'TableDataModel>doc_type' },
                                                     { path: 'TableDataModel>OrderQuantity' },
                                                     { path: 'TableDataModel>TargetQuantity' },
-                                                    { path: 'TableDataModel>unit_price' }
+                                                    { path: 'TableDataModel>unit_price' },
+                                                    { path: 'TableDataModel>PriceDetnExchangeRate' }
                                                 ],
                                                 formatter: '.getTotalPriceInr'
                                             }"
                                     />
                                     <Text
-                                        text="{TableDataModel>ItemGrossWeight}"
+                                        text="{
+                                                parts: [
+                                                    { path: 'TableDataModel>doc_type' },
+                                                    { path: 'TableDataModel>ItemNetWeight' },
+                                                    { path: 'TableDataModel>OrderQuantity' },
+                                                    { path: 'TableDataModel>TargetQuantity' }
+                                                ],
+                                                formatter: '.getUnitWeight'
+                                            }"
                                     />
+                                    <!-- <Text
+                                        text="{TableDataModel>ItemGrossWeight}"
+                                    /> -->
                                     <Text
                                         text="{TableDataModel>ItemNetWeight}"
                                     />

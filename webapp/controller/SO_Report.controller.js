@@ -113,11 +113,15 @@ sap.ui.define([
                 let orderQtyStr = (item.OrderQuantity || "").toString().replace(/,/g, "");
                 let targetQtyStr = (item.TargetQuantity || "").toString().replace(/,/g, "");
                 let unitPriceStr = (item.unit_price || "").toString().replace(/,/g, "");
+                let exchangeRateStr = (item.PriceDetnExchangeRate || "").toString().replace(/,/g, "");
+                let totalWeightStr = (item.ItemNetWeight || "").toString().replace(/,/g, "");
 
                 //  Convert to float (now clean of commas)
                 let orderQty = parseFloat(orderQtyStr) || 0;
                 let targetQty = parseFloat(targetQtyStr) || 0;
                 let price = parseFloat(unitPriceStr) || 0;
+                let exchangeRate = parseFloat(exchangeRateStr) || 0;
+                let totalWeight = parseFloat(totalWeightStr) || 0;
 
                 //  1. Decide which quantity to show in "SC/Direct SO Qty"
                 let finalQty = 0;
@@ -127,21 +131,35 @@ sap.ui.define([
                     finalQty = orderQty;
                 }
 
-                //  2. Calculate total price in INR
+                //  2. Calculate total price in INR & Unit Weight
+                
                 let totalPriceINR = 0;
+                let unitWeight = 0;
                 if (docType === "Sales Contract") {
-                    totalPriceINR = targetQty * price;
+                    totalPriceINR = targetQty * price * exchangeRate;
+                    unitWeight = (totalWeight / targetQty);
                 } else if (docType === "Direct Sales Order") {
-                    totalPriceINR = orderQty * price;
+                    totalPriceINR = orderQty * price * exchangeRate;
+                    unitWeight = (totalWeight / orderQty);
                 }
+
+                // //  Calculate Unit Weight
+                // if (docType === "Sales Contract") {
+                //     unitWeight = (totalWeight / targetQty);
+                // } else if (docType === "Direct Sales Order") {
+                //     unitWeight = (totalWeight / orderQty);
+                // } else {
+                //     return "0.00";
+                // }
 
                 //  3. Assign formatted values
                 item.OrderQuantity = parseFloat(finalQty.toFixed(2)); // numeric with 2 decimals
                 item.unit_price = parseFloat(price.toFixed(2));
                 item.total_price_inr = parseFloat(totalPriceINR.toFixed(2));
+                item.ItemGrossWeight = parseFloat(unitWeight.toFixed(2));
 
                 console.log(
-                    `Export Calc → DocType: ${docType}, Qty: ${finalQty}, UnitPrice: ${price}, TotalINR: ${item.total_price_inr}`
+                    `Export Calc → DocType: ${docType}, Qty: ${finalQty}, UnitPrice: ${price}, TotalINR: ${item.total_price_inr}, Unit Weight: ${item.ItemGrossWeight}`
                 );
 
                 return item;
@@ -167,7 +185,7 @@ sap.ui.define([
                 .then(() => sap.m.MessageToast.show("Spreadsheet export has finished"))
                 .finally(() => oSheet.destroy());
         },
-        
+
         createColumnConfig: function () {
             return [
                 { label: "Sales Document Type", property: "doc_type", type: EdmType.String },
@@ -507,24 +525,26 @@ sap.ui.define([
             }
         },
 
-        getTotalPriceInr: function (doc_type, OrderQuantity, TargetQuantity, unit_price) {
+        getTotalPriceInr: function (doc_type, OrderQuantity, TargetQuantity, unit_price, PriceDetnExchangeRate) {
             //  Clean the input strings by removing commas but keep decimals
             let orderQtyStr = (OrderQuantity || "").toString().replace(/,/g, "");
             let targetQtyStr = (TargetQuantity || "").toString().replace(/,/g, "");
             let unitPriceStr = (unit_price || "").toString().replace(/,/g, "");
+            let exchangeRateStr = (PriceDetnExchangeRate || "").toString().replace(/,/g, "");
 
             //  Convert to float (now clean of commas)
             let orderQty = parseFloat(orderQtyStr) || 0;
             let targetQty = parseFloat(targetQtyStr) || 0;
             let price = parseFloat(unitPriceStr) || 0;
+            let exchangeRate = parseFloat(exchangeRateStr) || 0;
 
             let totalPriceINR = 0;
 
             //  Business logic
             if (doc_type === "Sales Contract") {
-                totalPriceINR = targetQty * price;
+                totalPriceINR = targetQty * price * exchangeRate;
             } else if (doc_type === "Direct Sales Order") {
-                totalPriceINR = orderQty * price;
+                totalPriceINR = orderQty * price * exchangeRate;
             } else {
                 return "0.00";
             }
@@ -534,9 +554,35 @@ sap.ui.define([
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2
             });
+        },
+
+        getUnitWeight: function (doc_type, ItemNetWeight, OrderQuantity, TargetQuantity) {
+            let orderQtyStr = (OrderQuantity || "").toString().replace(/,/g, "");
+            let targetQtyStr = (TargetQuantity || "").toString().replace(/,/g, "");
+            let totalWeightStr = (ItemNetWeight || "").toString().replace(/,/g, "");
+
+            //  Convert to float (now clean of commas)
+            let orderQty = parseFloat(orderQtyStr) || 0;
+            let targetQty = parseFloat(targetQtyStr) || 0;
+            let totalWeight = parseFloat(totalWeightStr) || 0;
+
+            let unitWeight = 0;
+
+            //  Business logic
+            if (doc_type === "Sales Contract") {
+                unitWeight = (totalWeight / targetQty);
+            } else if (doc_type === "Direct Sales Order") {
+                unitWeight = (totalWeight / orderQty);
+            } else {
+                return "0.00";
+            }
+
+            //  Return nicely formatted with commas and decimals
+            return unitWeight.toLocaleString("en-IN", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
         }
-
-
 
     });
 });
