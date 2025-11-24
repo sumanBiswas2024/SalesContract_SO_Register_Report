@@ -201,6 +201,8 @@ sap.ui.define([
                 { label: "Material Name", property: "SalesDocumentItemText", type: EdmType.String },
                 { label: "Material Group", property: "MaterialGroup", type: EdmType.String },
                 { label: "Material Group Name", property: "ProductGroupName", type: EdmType.String },
+                { label: "Profit Centre Code", property: "ProfitCenter", type: EdmType.String },
+                { label: "Profit Centre Name", property: "ProfitCenterLongName", type: EdmType.String },
 
                 // Numbers with Excel style
                 {

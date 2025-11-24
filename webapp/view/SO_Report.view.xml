@@ -195,8 +195,9 @@
                             >
                                 <Text text="Plant" />
                             </Column>
+                            
                             <Column
-                                width="10rem"
+                                width="12rem"
                                 minScreenWidth="Tablet"
                                 demandPopin="true"
                                 hAlign="Begin"
@@ -239,6 +240,24 @@
                                 visible="true"
                             >
                                 <Text text="Material Group Name" />
+                            </Column>
+                            <Column
+                                width="10rem"
+                                minScreenWidth="Tablet"
+                                demandPopin="true"
+                                hAlign="Begin"
+                                visible="true"
+                            >
+                                <Text text="Profit Centre Code" />
+                            </Column>
+                            <Column
+                                width="12rem"
+                                minScreenWidth="Tablet"
+                                demandPopin="true"
+                                hAlign="Begin"
+                                visible="true"
+                            >
+                                <Text text="Profit Centre Name" />
                             </Column>
                             <Column
                                 width="10rem"
@@ -326,6 +345,7 @@
                                         text="{TableDataModel>BankIdentification}"
                                     />
                                     <Text text="{TableDataModel>Plant}" />
+                                    
                                     <Text text="{TableDataModel>salesperson}" />
                                     <Text text="{TableDataModel>Material}" />
                                     <Text
@@ -337,6 +357,8 @@
                                     <Text
                                         text="{TableDataModel>ProductGroupName}"
                                     />
+                                    <Text text="{TableDataModel>ProfitCenter}" />
+                                    <Text text="{TableDataModel>ProfitCenterLongName}" />
                                     <!-- <Text text="{TableDataModel>OrderQuantity}" /> -->
                                     <Text
                                         text="{

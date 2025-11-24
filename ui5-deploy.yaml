@@ -21,6 +21,6 @@ builder:
           name: ZSORECD_AR
           description: Sales Contract - SO Register Report
           package: ZCFC_SCSO_RECD_RPT
-          transport: NRTK904789
+          transport: NRTK905064
         exclude:
           - /test/
